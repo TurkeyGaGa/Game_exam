@@ -28,4 +28,6 @@ jobs:
             /tmp/birds/server.log
             /tmp/birds/kickoff.ppm
             /tmp/birds/board.json
+            /tmp/birds/win.json
+            /tmp/birds/loss.json
             /tmp/birds/Linux/*.log

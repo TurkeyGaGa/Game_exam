@@ -43,3 +43,27 @@ send(62)
 length,=read("I"); gt=stream.read(length)
 (out/"board.json").write_bytes(gt)
 print("Screenshot",w,h,"ground truth bytes",length)
+
+# Look for native WON and LOST outcomes on the same fixed tower level.
+send(2,"I",8);read("B")
+import math
+for angle in [22,15,30,10,35,40,8,45,50,55,60,65,70,75,80,5,0,-5,85,18,25,27,32,38,42]:
+    fx=round(98-55*math.cos(math.radians(angle)))
+    fy=round(253+55*math.sin(math.radians(angle)))
+    send(31,"iiii",fx,fy,0,0);read("B")
+    for i in range(120):
+        send(12);state,=read("B")
+        if state in (6,7):break
+        time.sleep(.2)
+    send(65);score,=read("I")
+    print("shot",angle,fx,fy,"state",state,"score",score,flush=True)
+    if state in (6,7):
+        result=out/("win.json" if state==6 else "loss.json")
+        if not result.exists():
+            result.write_text(json.dumps([fx,fy,state,score]))
+    if (out/"win.json").exists() and (out/"loss.json").exists():break
+    send(51,"I",1);read("B")
+    for i in range(80):
+        time.sleep(.15);send(12);state,=read("B")
+        if state==5:break
+    time.sleep(.6)
