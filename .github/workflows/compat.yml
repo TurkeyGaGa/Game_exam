@@ -1,0 +1,51 @@
+name: Linux game compatibility
+on:
+  push:
+    branches: [game-linux-compat-check]
+permissions:
+  contents: read
+jobs:
+  trial:
+    strategy:
+      fail-fast: false
+      matrix:
+        game: [firewater, rocketleague]
+        control: [positive, negative]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.game == 'firewater' && '4030c5e0b06aff6b85ef829e36f05d294507f3a7' || '485973d3534ad74f91e55bb77abd9f5bc93426e5' }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: docker/setup-docker-action@v5
+        with:
+          version: v29.5.2
+          set-host: true
+          daemon-config: '{"features":{"containerd-snapshotter":true}}'
+      - run: python -m pip install -e .
+      - if: matrix.control == 'positive'
+        run: harbor run --game-suite ${{ matrix.game }} --standard -a oracle -y
+      - if: matrix.control == 'negative'
+        run: python game_first_exam/tests/benchmarks/${{ matrix.game }}/${{ matrix.game == 'firewater' && 'missed_jump' || 'concede' }}/run_harbor.py
+      - name: Verify grade
+        run: |
+          python - <<'PY'
+          import pathlib,json
+          p,=pathlib.Path('jobs').glob('*/*/verifier/reward.json')
+          r=json.loads(p.read_text())
+          print(r,flush=True)
+          assert r['environment_error']==0 and r['result_valid'] and r['success']==int('${{ matrix.control }}'=='positive')
+          PY
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.game }}-${{ matrix.control }}
+          path: |
+            jobs/*/*/verifier/reward.json
+            jobs/*/*/exception.txt
+            jobs/*/*/artifacts/data/final.json
+            jobs/*/*/agent/*.txt
+            jobs/*/*/trial.log
