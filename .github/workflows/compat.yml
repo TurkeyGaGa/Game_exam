@@ -10,7 +10,7 @@ jobs:
       fail-fast: false
       matrix:
         game: [firewater]
-        control: [negative]
+        control: [positive]
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     steps:
