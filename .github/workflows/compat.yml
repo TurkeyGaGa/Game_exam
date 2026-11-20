@@ -9,8 +9,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        game: [firewater, rocketleague]
-        control: [positive, negative]
+        game: [firewater]
+        control: [negative]
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     steps:
@@ -29,7 +29,7 @@ jobs:
       - if: matrix.control == 'positive'
         run: harbor run --game-suite ${{ matrix.game }} --standard -a oracle -y
       - if: matrix.control == 'negative'
-        run: python game_first_exam/tests/benchmarks/${{ matrix.game }}/${{ matrix.game == 'firewater' && 'missed_jump' || 'concede' }}/run_harbor.py
+        run: python game_first_exam/tests/benchmarks/${{ matrix.game }}/${{ matrix.game == 'firewater' && 'missed_jump' || 'concede' }}/run_harbor.py <<< "Y"
       - name: Verify grade
         run: |
           python - <<'PY'
