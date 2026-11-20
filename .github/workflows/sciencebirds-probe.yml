@@ -1,0 +1,27 @@
+name: Science Birds native validation
+on:
+  push:
+    branches: [sciencebirds-native-check]
+permissions:
+  contents: read
+jobs:
+  game:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run one fixed native level
+        env:
+          BIRDS_TEMP: /tmp/birds
+        run: xvfb-run -a -s '-screen 0 1280x800x24' bash sciencebirds-check/start.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-check
+          path: |
+            /tmp/birds/server.log
+            /tmp/birds/kickoff.ppm
+            /tmp/birds/board.json
+            ~/.config/unity3d/**/Player.log
