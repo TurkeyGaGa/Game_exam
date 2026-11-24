@@ -1,22 +1,23 @@
-name: Linux game compatibility
+name: Verify PR game entry jobs
 on:
   push:
     branches: [game-linux-compat-check]
 permissions:
   contents: read
 jobs:
-  trial:
+  browser-game-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
-        game: [firewater]
-        control: [positive]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 55
+        include:
+          - {suite: firewater, control: firewater/missed_jump, revision: fb92c63f0353dd5dc4e6363393e179f29eb292bd}
+          - {suite: rocketleague, control: rocketleague/concede, revision: f48b994bdaabb3b06548fc358f18490ad6d4a646}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ matrix.game == 'firewater' && '4030c5e0b06aff6b85ef829e36f05d294507f3a7' || '485973d3534ad74f91e55bb77abd9f5bc93426e5' }}
+          ref: ${{ matrix.revision }}
           persist-credentials: false
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
@@ -26,26 +27,26 @@ jobs:
           set-host: true
           daemon-config: '{"features":{"containerd-snapshotter":true}}'
       - run: python -m pip install -e .
-      - if: matrix.control == 'positive'
-        run: harbor run --game-suite ${{ matrix.game }} --standard -a oracle -y
-      - if: matrix.control == 'negative'
-        run: python game_first_exam/tests/benchmarks/${{ matrix.game }}/${{ matrix.game == 'firewater' && 'missed_jump' || 'concede' }}/run_harbor.py <<< "Y"
-      - name: Verify grade
+      - name: Run the reference solution
+        env:
+          SUITE: ${{ matrix.suite }}
         run: |
-          python - <<'PY'
-          import pathlib,json
-          p,=pathlib.Path('jobs').glob('*/*/verifier/reward.json')
-          r=json.loads(p.read_text())
-          print(r,flush=True)
-          assert r['environment_error']==0 and r['result_valid'] and r['success']==int('${{ matrix.control }}'=='positive')
-          PY
-      - if: always()
-        uses: actions/upload-artifact@v4
+          harbor run --game-suite "$SUITE" --standard -c configs/harbor/oracle.json \
+            --jobs-dir "$PWD/jobs" --job-name browser-reference -y
+          python ci_checks/check-browser-game-result.py jobs/browser-reference 1
+      - name: Run the failure control
+        env:
+          CONTROL: ${{ matrix.control }}
+        run: |
+          python "game_first_exam/tests/benchmarks/$CONTROL/run_harbor.py"
+          python ci_checks/check-browser-game-result.py jobs 0
+      - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: ${{ matrix.game }}-${{ matrix.control }}
+          name: ${{ matrix.suite }}-smoke-evidence
           path: |
-            jobs/*/*/verifier/reward.json
-            jobs/*/*/exception.txt
+            jobs/*/result.json
             jobs/*/*/artifacts/data/final.json
-            jobs/*/*/agent/*.txt
+            jobs/*/*/verifier/reward.json
             jobs/*/*/trial.log
+          retention-days: 7
